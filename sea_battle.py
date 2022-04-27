@@ -88,15 +88,36 @@ class Ship:
         self.cells = set()
 
     def add_cell(self, cell: Cell):
+        """Add cell to ship
+
+        Args:
+            cell (Cell): Cell
+        """
         self.cells.add(cell)
 
     def get_hit(self, hit_point: Cell) -> Cell:
+        """Get ships hit point or None if miss
+
+        Args:
+            hit_point (Cell): Cell
+
+        Returns:
+            Cell: Cell or None
+        """
         for cell in self.cells:
             if cell == hit_point:
                 return cell
         return None
 
     def hit(self, hit_point: Cell) -> ShipState:
+        """Check hitting ship
+
+        Args:
+            hit_point (Cell): Cell
+
+        Returns:
+            ShipState: Hit state (sink, hit, miss)
+        """
         if (cell := self.get_hit(hit_point)):
             self.cells.remove(cell)
             if self.cells:
@@ -113,6 +134,15 @@ class Ship:
 class ShipFactory:
     @staticmethod
     def build_ship(ship_size: int, board_size: int) -> Ship:
+        """Ships factoty. Generate random ship
+
+        Args:
+            ship_size (int): ship lenght in cells
+            board_size (int): board size in cells
+
+        Returns:
+            Ship: Ship object
+        """
         ship = Ship()
 
         x = random.randint(0, board_size - ship_size)
@@ -157,6 +187,17 @@ class Board:
         return buffer
 
     def get_cell(self, cell: Cell) -> CellState:
+        """Get cell value
+
+        Args:
+            cell (Cell): Cell
+
+        Raises:
+            BoardOutException: Raise if out of board boundary
+
+        Returns:
+            CellState: Cell status (free, ship, wreck, miss)
+        """
         if all([
             0 <= cell.x < self.size,
             0 <= cell.y < self.size
@@ -166,6 +207,15 @@ class Board:
             raise BoardOutException(str(cell))
 
     def set_cell(self, cell: Cell, value: CellState):
+        """Set cell value
+
+        Args:
+            cell (Cell): Cell
+            value (CellState): Value
+
+        Raises:
+            BoardOutException: Raise if out of board boundary
+        """
         if all([
             0 <= cell.x < self.size,
             0 <= cell.y < self.size
@@ -174,8 +224,15 @@ class Board:
         else:
             raise BoardOutException(str(cell))
 
-    # get neighborhood cells
     def get_nbhd(self, cell: Cell) -> list:
+        """Get neighborhood cells
+
+        Args:
+            cell (Cell): Cell
+
+        Returns:
+            list: Neighborhood cell list
+        """
         nbhd = []
         for offset_x in [-1, 0, 1]:
             for offset_y in [-1, 0, 1]:
@@ -191,11 +248,19 @@ class Board:
         return nbhd
 
     def add_ship(self, ship: Ship):
+        """Add ship to board
+
+        Args:
+            ship (Ship): Ship
+
+        Raises:
+            BoardBadShipException: Raise if ship doesn't fit
+        """
         for cell in ship.cells:
             if (self.get_cell(cell) != CellState.FREE):
                 raise BoardBadShipException
             for nbhd_cell in self.get_nbhd(cell):
-                if (self.get_cell(cell) != CellState.FREE):
+                if (self.get_cell(nbhd_cell) != CellState.FREE):
                     raise BoardBadShipException
 
         if (self.show_ships):
@@ -205,6 +270,18 @@ class Board:
         self.ships.add(ship)
 
     def shot(self, hit_point: Cell) -> ShipState:
+        """Check shot. Check every ship from board to hit.
+        Remove cell if hit or remove ship if sink
+
+        Args:
+            hit_point (Cell): Cell
+
+        Raises:
+            BoardUsedException: Raise if this cell was used
+
+        Returns:
+            ShipState: Ship status (hit, sink, miss)
+        """
         if hit_point in self.shots:
             raise BoardUsedException(str(hit_point))
         else:
@@ -225,12 +302,14 @@ class Board:
         return ShipState.MISS
 
     def clear(self):
+        """Clear board
+        """
         self.ships.clear()
         self.field = [[CellState.FREE]*self.size for _ in range(self.size)]
 
 
 BOARD_SIZE = 6
-SHIP_SET = [3, 1, 1]
+SHIP_SET = [3, 2, 2, 1, 1, 1, 1]
 random.seed(datetime.now().timestamp())
 
 board = Board(BOARD_SIZE)
@@ -250,17 +329,36 @@ while True:
     if len(board.ships):
         break
 
+turn = 1
+print("Move #", turn)
 print(board)
-while cmd := input("Move: "):
-    x, y = list(cmd.upper())[:2]
-    ret = board.shot(Cell(ord(x) - ord("A"), int(y) - 1))
-    if ret == ShipState.HIT:
-        print("Hit!")
-    elif ret == ShipState.SINK:
-        print("Sink!!!!")
+#while cmd := input("Move: "):
+while True:
+    #x, y = list(cmd.upper())[:2]
+    x = random.randint(0, 5)
+    y = random.randint(0, 5)
+    try:
+        #ret = board.shot(Cell(ord(x) - ord("A"), int(y) - 1))
+        ret = board.shot(Cell(x, y))
+    except BoardOutException:
+        print("Too far")
+    except BoardUsedException:
+        #print("Used cell")
+        pass
     else:
-        print("Miss")
-    print(board)
-    if(not board.ships):
-        print("You're won!")
-        break
+        if ret == ShipState.HIT:
+            print("Hit!")
+        elif ret == ShipState.SINK:
+            print("Sink!!!!")
+        else:
+            print("Miss")
+
+        print("Move #", turn)
+        if(not board.ships):
+            print(board)
+            print("You're won!")
+            break
+        else:
+            turn += 1
+            print(board)
+
