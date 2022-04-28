@@ -25,6 +25,7 @@ import random
 from datetime import datetime
 import time
 
+VERSION = "0.5"
 
 class BoardException(BaseException):
     def __init__(self, *args: object) -> None:  # pylint: disable=super-init-not-called
@@ -168,10 +169,11 @@ class Board:
     h_labels = list("1234567890")
 
     def __init__(self, size=6):
-        self.v_labels = self.v_labels[:size]
-        self.h_labels = self.h_labels[:size]
+        self.size = size if size > 10 else 10
 
-        self.size = size if size <= 6 else 6
+        # self.v_labels = self.v_labels[:self.size]
+        # self.h_labels = self.h_labels[:self.size]
+
         self.show_ships = True
 
         self.field = [[CellState.FREE]*self.size for _ in range(self.size)]
@@ -362,8 +364,8 @@ class Board:
         self.show_ships = visible
 
 
-BOARD_SIZE = 6
-SHIP_SET = [3, 2, 2, 1, 1, 1, 1]
+BOARD_SIZE = 10
+SHIP_SET = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1]
 
 
 def main():
@@ -393,8 +395,10 @@ def main():
 
     turn = 1
     hits = []
-    print("Move #", turn)
+
     print(board)
+    print("\nMove #", turn)
+
     # while cmd := input("Move: "):
     while True:
         #row, col = list(cmd.upper())[:2]
@@ -430,8 +434,8 @@ def main():
                     break
         else:
             while True:
-                row = random.randint(0, 5)
-                col = random.randint(0, 5)
+                row = random.randint(0, board.size - 1)
+                col = random.randint(0, board.size - 1)
                 target = Cell(row, col)
                 for cell in board.get_nbhd(target):
                     if board.get_cell(cell) == CellState.WRECK:
@@ -450,7 +454,7 @@ def main():
             # time.sleep(1)
             pass
         else:
-            print("Move is : ", str(target))
+            print("Move is :", str(target))
 
             if ret == ShipState.HIT:
                 print("Hit!")
@@ -462,12 +466,14 @@ def main():
                 print("Miss")
 
             if not board.ships:
+                print(board)
                 print("You're won!")
                 break
             else:
                 turn += 1
-                print("Move #", turn)
+                print("\n\nMove #", turn)
                 print(board)
+                print()
 
             time.sleep(0.5)
 
