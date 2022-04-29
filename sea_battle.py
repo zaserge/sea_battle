@@ -28,10 +28,6 @@ import time
 VERSION = "0.5"
 
 
-BOARD_SIZE = 10
-SHIP_SET = [4, 3, 3, 2, 2, 2, 1, 1, 1, 1]
-
-
 class BoardException(BaseException):
     def __init__(self, *args: object) -> None:  # pylint: disable=super-init-not-called
         if args:
@@ -64,7 +60,7 @@ class BoardShipPlacementException(BoardException):
             return "No room for ship"
 
 
-class BadGamerException(BoardException):
+class BadBoardException(BoardException):
     def __str__(self) -> str:
         if self.msg:
             return "Error gamer initializing: " + self.msg
@@ -84,7 +80,6 @@ class Cell:
     def __init__(self, row, col):
         self.row = row
         self.col = col
-        self.type = CellState.FREE
 
     def __eq__(self, other):
         return self.row == other.row and self.col == other.col
@@ -181,11 +176,11 @@ class Board:
     V_LABELS = list("ABCDEFGHIJ")
     H_LABELS = list("1234567890")
 
-    def __init__(self, size=6):
-        self.size = size if size > 10 else 10
-
-        # self.v_labels = self.v_labels[:self.size]
-        # self.h_labels = self.h_labels[:self.size]
+    def __init__(self, board_size):
+        if 0 < board_size <= 10:
+            self.size = board_size
+        else:
+            raise BadBoardException
 
         self.show_ships = True
 
@@ -195,7 +190,7 @@ class Board:
         self.ships = set()
 
     def __str__(self):
-        buffer = "  |  " + " ".join(self.H_LABELS) + "|"
+        buffer = "  |  " + " ".join(self.H_LABELS[:self.size]) + "|"
         buffer += "\n--|" + "-"*(self.size*2) + "-|--"
         for i, row in enumerate(self.field):
             buffer += f"\n{self.V_LABELS[i]} | "
@@ -206,7 +201,7 @@ class Board:
                     buffer += cell*2
             buffer += f"| {self.V_LABELS[i]}"
         buffer += "\n--|" + "-"*(self.size*2) + "-|--"
-        buffer += "\n  |  " + " ".join(self.H_LABELS) + "|"
+        buffer += "\n  |  " + " ".join(self.H_LABELS[:self.size]) + "|"
 
         return buffer
 
@@ -378,36 +373,46 @@ class Board:
 
 
 class Player:
+
     name = "Player" + str(random.randint(1, 1000))
     board_size = 0
+    board = None
+    move_list = []
 
     def __init__(self, board_size: int, name: str = None) -> None:
         if name:
             self.name = name
 
-        if 0 < board_size <= 10:
-            self.board_size = board_size
-        else:
-            raise BadGamerException
+        self.board_size = board_size
+        self.board = Board(board_size)
 
     def __str__(self) -> str:
         return self.name
 
-    def get_move(self) -> Cell:
+    def _brain(self) -> Cell:
         raise NotImplementedError
 
+    def get_move(self) -> Cell:
+        cell = self._brain()
+        self.move_list.append(cell)
+        return cell
+
     def proceed_answer(self, answer: ShipState):
-        raise NotImplementedError
+        if answer in (ShipState.HIT, ShipState.SINK):
+            self.board.set_cell(self.move_list[-1], CellState.WRECK)
+        else:
+            self.board.set_cell(self.move_list[-1], CellState.MISS)
 
 
 class Human(Player):
+
     def __init__(self, board_size: int, name: str = None) -> None:
         if name:
             super().__init__(board_size, "Human" + str(random.randint(1, 1000)))
         else:
             super().__init__(board_size, name)
 
-    def get_move(self) -> Cell:
+    def _brain(self) -> Cell:
         cmd = input("Move: ")
         if not cmd:
             return None
@@ -415,22 +420,15 @@ class Human(Player):
         row, col = list(cmd.upper())[:2]
         return Cell(Board.V_LABELS.index(row), Board.H_LABELS.index(col))
 
-    def proceed_answer(self, answer: ShipState):
-        pass
-
 
 class Robot(Player):
     hits = []
-    old_shots = []
-    board = None
 
     def __init__(self, board_size: int, name: str = None) -> None:
         if name:
             super().__init__(board_size, "Robot" + str(random.randint(1, 1000)))
         else:
             super().__init__(board_size, name)
-
-        self.board = Board(board_size)
 
     def _chase(self) -> Cell:
         #print("hits: ", [str(cell) for cell in self.hits])
@@ -449,17 +447,21 @@ class Robot(Player):
                 nbhd = nbhd.union(self.board.get_nbhd_v(cell) if is_vertical
                                   else self.board.get_nbhd_h(cell))
 
-        # if area of area hits cells contain wreck remove this cell
         for cell in nbhd.copy():
+            # remove cell if already hits
+            if cell in self.move_list:
+                nbhd.remove(cell)
+                continue
+
+            # if area of area hits cells contain wrecks of other ship remove this cell
             for cell_ in self.board.get_nbhd(cell):
-                if (self.board.get_cell(cell_) == CellState.WRECK) and (cell_ not in self.hits):
-                    nbhd.remove(cell)
+                if self.board.get_cell(cell_) == CellState.WRECK and (cell_ not in self.hits):
+                    nbhd.discard(cell_)
                     break
 
-        # return first free cell
-        for cell in nbhd:
-            if self.board.get_cell(cell) != CellState.MISS and cell not in self.hits:
-                return cell
+        print("CHASE: ", end="")
+        # return random free cell
+        return random.choice(list(nbhd))
 
     def _random_hit(self) -> Cell:
         # random shot with some checks (do not be repeted and hit near wrecks)
@@ -468,7 +470,7 @@ class Robot(Player):
             col = random.randint(0, self.board_size - 1)
             target = Cell(row, col)
 
-            if target in self.old_shots:
+            if target in self.move_list:
                 continue
 
             # check neighborhood cells for wrecks
@@ -481,9 +483,10 @@ class Robot(Player):
             if target:
                 break
 
+        print("RND: ", end="")
         return target
 
-    def get_move(self) -> Cell:
+    def _brain(self) -> Cell:
         # if has wounded ship
         if self.hits:
             target = self._chase()
@@ -491,30 +494,31 @@ class Robot(Player):
         else:
             target = self._random_hit()
 
-        self.old_shots.append(target)
         return target
 
     def proceed_answer(self, answer: ShipState):
+        super().proceed_answer(answer)
+
         if answer == ShipState.HIT:
-            self.hits.append(self.old_shots[-1])
-            self.board.set_cell(self.old_shots[-1], CellState.WRECK)
+            self.hits.append(self.move_list[-1])
         elif answer == ShipState.SINK:
             self.hits.clear()
-            self.board.set_cell(self.old_shots[-1], CellState.WRECK)
-        else:
-            self.board.set_cell(self.old_shots[-1], CellState.MISS)
 
 
 class Game:
-    # opponents - list of {"brain": player, "board": board)
+    # opponents - list of players
+    # player - {"brain": player, "board": board, "enemy": player)
     opponents = []
     board_size = 0
+    ship_set = []
 
-    def __init__(self, board_size: int) -> None:
+    def __init__(self, board_size: int, ship_set: list) -> None:
         if 0 < board_size <= 10:
             self.board_size = board_size
         else:
-            raise BadGamerException
+            raise BadBoardException
+
+        self.ship_set = ship_set
 
     def populate_board(self, board: Board, ship_set: list) -> None:
         # 100 attempt
@@ -542,8 +546,8 @@ class Game:
     def setup(self):
         player = {"brain": Robot(self.board_size),
                   "board": Board(self.board_size)}
-        player["board"].visible = False
-        self.populate_board(player["board"], SHIP_SET)
+        # player["board"].visible = False
+        self.populate_board(player["board"], self.ship_set)
         self.opponents.append(player)
 
     def start(self):
@@ -580,10 +584,13 @@ class Game:
 
                 if answer == ShipState.HIT:
                     print("Hit!")
+                    print()
                 elif answer == ShipState.SINK:
                     print("Sink!!!!")
+                    print()
                 else:
                     print("Miss")
+                    print()
 
                 if not player["enemy"]["board"].ships:
                     print()
@@ -596,11 +603,15 @@ class Game:
                 turn += 1
 
 
+BOARD_SIZE = 6
+SHIP_SET = [3, 2, 2, 1, 1, 1, 1]
+
+
 def main():
 
     random.seed(datetime.now().timestamp())
 
-    game = Game(BOARD_SIZE)
+    game = Game(BOARD_SIZE, SHIP_SET)
     game.setup()
 
     game.start()
