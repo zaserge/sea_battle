@@ -682,7 +682,7 @@ Game
                 if to many error
                     clear all ships and start from begining
     battle
-        while not win
+        game loop
             Player is asked for move
                 Human
                     used input()
@@ -693,13 +693,14 @@ Game
                         random shot with basic checks
             enemy Board procees this move
                 check repeated shot
+                check out of bounds
                 check all ships to hit
                     if any
                         remove this cell
                     if no cells in ship
                         remove ship
-            Player procees Board answer
-                set marks on his own Board
+            Player proceed Board's answer
+                player set marks on his own Board
             print some game stats
             check if no ship on board
                 break
