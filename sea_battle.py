@@ -24,8 +24,13 @@
 import random
 from datetime import datetime
 import time
+import os
 
-VERSION = "0.8"
+VERSION = "0.8b"
+
+
+def cls():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
 
 class BoardException(BaseException):
@@ -92,7 +97,10 @@ class Cell:
         return self.row == other.row and self.col == other.col
 
     def __str__(self) -> str:
-        return f"({Board.V_LABELS[self.row]}, {Board.H_LABELS[self.col]})"
+        return f"{Board.V_LABELS[self.row]}{Board.H_LABELS[self.col]}"
+
+    def __repr__(self):
+        return f"Cell({Board.V_LABELS[self.row]}, {Board.H_LABELS[self.col]})"
 
     def __hash__(self) -> int:
         return self.row * 100 + self.col
@@ -118,30 +126,32 @@ class Ship:
         """
         self.cells.add(cell)
 
-    def get_hit(self, hit_point: Cell) -> Cell:
-        """Get ships hit point or None if miss
+    def is_hit(self, target: Cell) -> Cell:
+        """Search ships hit point
+
+        Return hit cell or None if miss
 
         Args:
-            hit_point (Cell): Cell
+            target (Cell): Cell to check
 
         Returns:
             Cell: Cell or None
         """
         for cell in self.cells:
-            if cell == hit_point:
+            if cell == target:
                 return cell
         return None
 
-    def hit(self, hit_point: Cell) -> ShipState:
+    def hit(self, target: Cell) -> ShipState:
         """Check hitting ship
 
         Args:
-            hit_point (Cell): Cell
+            target (Cell): Cell to check
 
         Returns:
             ShipState: Hit state (sink, hit, miss)
         """
-        hit_cell = self.get_hit(hit_point)
+        hit_cell = self.is_hit(target)
         if hit_cell:
             self.cells.remove(hit_cell)
             if self.cells:
@@ -159,7 +169,9 @@ class ShipFactory:
 
     @staticmethod
     def build_ship(ship_size: int, board_size: int) -> Ship:
-        """Ships factoty. Generate random ship
+        """Ships factoty.
+
+        Generate random ship
 
         Args:
             ship_size (int): ship lenght in cells
@@ -337,8 +349,10 @@ class Board:
             self.set_cell(cell, CellState.SHIP)
 
     def shot(self, hit_point: Cell) -> ShipState:
-        """Check shot. Check every ship from board to hit.
-        Remove cell if hit or remove ship if sink
+        """Processing shot.
+
+        Check every ship on the board for a hit.
+        Remove cell if hit or remove ship if sunk
 
         Args:
             hit_point (Cell): Cell
@@ -403,14 +417,38 @@ class Player:
         return self.name
 
     def _brain(self) -> Cell:
+        """Main AI worker.
+
+        Must be implemented for human or robot
+
+        Raises:
+            NotImplementedError: Raise when not implemented
+
+        Returns:
+            Cell: player's move
+        """
         raise NotImplementedError
 
-    def get_move(self) -> Cell:
+    def ask_move(self) -> Cell:
+        """Asking for move.
+
+        Return player's move and store it in move_list
+
+        Returns:
+            Cell: player's move
+        """
         cell = self._brain()
         self.move_list.append(cell)
         return cell
 
-    def proceed_answer(self, answer: ShipState):
+    def processing_answer(self, answer: ShipState):
+        """Processing last move result.
+
+        Set marks at own board
+
+        Args:
+            answer (ShipState): Hit, sink or miss
+        """
         if answer in (ShipState.HIT, ShipState.SINK):
             self.board.set_cell(self.move_list[-1], CellState.WRECK)
         else:
@@ -420,11 +458,25 @@ class Player:
 class Human(Player):
 
     def _brain(self) -> Cell:
+        """Read user input.
+
+        Check it and convert to Cell object
+
+        Raises:
+            BoardOutException: Out of bounds exception
+
+        Returns:
+            Cell: player's move
+        """
         cmd = input()
         if not cmd:
             return None
 
-        row, col = list(cmd.upper())[:2]
+        try:
+            row, col = list(cmd.upper())[:2]
+        except ValueError as error:
+            raise BoardOutException from error
+
         while not row.isalpha() or not col.isdigit():
             cmd = input(" Move must be LETTER+DIGIT (A1, B2, c3). Try again: ")
             row, col = list(cmd.upper())[:2]
@@ -443,6 +495,13 @@ class Robot(Player):
         self.hits = []
 
     def _chase(self) -> Cell:
+        """Chase AI
+
+        If there is wounded ship. Try to found other ship's cell
+
+        Returns:
+            Cell: player's move
+        """
         nbhd = set()
 
         # search around cells if hits is only 1 cell
@@ -458,8 +517,6 @@ class Robot(Player):
                 nbhd = nbhd.union(self.enemy_board.get_nbhd_v(cell) if is_vertical
                                   else self.enemy_board.get_nbhd_h(cell))
 
-        print("CHASE: ", end="")
-
         for cell in nbhd.copy():
             # remove cell if already hits
             if cell in self.move_list:
@@ -472,9 +529,15 @@ class Robot(Player):
                     nbhd.discard(cell_)
                     break
 
+        print("CHASE: ", end="")
         return random.choice(list(nbhd))
 
     def _random_hit(self) -> Cell:
+        """Generate random move
+
+        Returns:
+            Cell: player's move
+        """
         # random shot with some checks (do not be repeted and hit near wrecks)
         while True:
             row = random.randint(0, self.board_size - 1)
@@ -505,10 +568,11 @@ class Robot(Player):
         else:
             target = self._random_hit()
 
+        time.sleep(0.5)
         return target
 
-    def proceed_answer(self, answer: ShipState):
-        super().proceed_answer(answer)
+    def processing_answer(self, answer: ShipState):
+        super().processing_answer(answer)
 
         if answer == ShipState.HIT:
             self.hits.append(self.move_list[-1])
@@ -535,8 +599,8 @@ class Game:
 
         self.opponents = []
 
-    def place_ships(self, board: Board, ship_set: list) -> None:
-        # 100 attempt
+    def place_ships(self, board: Board, ship_set: list):
+        # 100 attempt before raise exception
         for _ in range(100):
             for ship_size in ship_set:
                 # 1000 attempts to place ship
@@ -556,13 +620,21 @@ class Game:
                     break
 
             if len(board.ships) == len(SHIP_SET):
-                break
+                return
 
-    def setup(self):
+        raise BoardShipPlacementException
+
+    def setup(self) -> bool:
+        """Print fome greeting, ask for player names
+
+        Returns:
+            bool: True is ok
+        """
         print("\nWelcome to Sea Battle Game")
         print("--------------------------")
         print("Move format is 'RowColumn' (A1, C4, B3, etc)")
         print("Empty string for exit")
+        print("If one player is human robot's board is 'closed' else all boards are 'open'")
         print("--------------------------\n")
         print("Enter your names. If name is empty then Robot will be assign to this player")
         print()
@@ -588,20 +660,32 @@ class Game:
             else:
                 self.opponents.append(
                     {"brain": Robot(self.board_size, "Robot-Right"),
-                    "board": Board(self.board_size)})
+                     "board": Board(self.board_size)})
                 print(">> Player 'Robot-Right' added to game")
 
         # assign enemy for each player
-        for i, player in enumerate(self.opponents):
-            self.place_ships(player["board"], self.ship_set)
-            player["enemy"] = self.opponents[(i + 1) % len(self.opponents)]
+        try:
+            for i, player in enumerate(self.opponents):
+                self.place_ships(player["board"], self.ship_set)
+                player["enemy"] = self.opponents[(i + 1) % len(self.opponents)]
+        except BadBoardException:
+            return False
+        else:
+            print(f'\n\n  {self.opponents[0]["brain"].name} VS {self.opponents[1]["brain"].name}')
+            return True
 
-    def _print_2_board(self, palyer1: Player, player2: Player):
+    def _print_2_board(self, player1: Player, player2: Player):
+        """Print two boards side by side
+
+        Args:
+            player1 (Player): player1
+            player2 (Player): player2
+        """
         screen_width = self.board_size * 2 + 6
 
         screen1 = []
-        screen1.append("  | " + palyer1["brain"].name)
-        screen1 += str(palyer1["board"]).split("\n")
+        screen1.append("  | " + player1["brain"].name)
+        screen1 += str(player1["board"]).split("\n")
 
         screen2 = []
         screen2.append("  | " + player2["brain"].name)
@@ -611,10 +695,11 @@ class Game:
             print(f"{l_1:<{screen_width}}          {l_2:<{screen_width}}")
 
     def start(self):
+
         turn = 1
         player_in_game = 0
 
-        print()
+        print("\n\n")
 
         while True:
             player = self.opponents[player_in_game]
@@ -625,7 +710,7 @@ class Game:
             print("Enter your move: ", end="")
 
             try:
-                cell = player["brain"].get_move()
+                cell = player["brain"].ask_move()
                 if type(player["brain"]).__name__ == "Robot":
                     print(str(cell))
 
@@ -641,81 +726,88 @@ class Game:
                 print("You have already shot this target. Try again\n")
                 time.sleep(1)
             else:
+                # cls()
 
-                player["brain"].proceed_answer(answer)
+                player["brain"].processing_answer(answer)
 
                 if answer == ShipState.HIT:
                     print("\n >>>>>>> Hit! <<<<<<<\n")
                 elif answer == ShipState.SINK:
-                    print("\n >>>>>>> Sink!!!! <<<<<<<\n")
+                    print("\n >>>>>>> Sunk!!!! <<<<<<<\n")
                 else:
                     print("\n >>>>>>> Miss <<<<<<<\n")
                     player_in_game = 1 - player_in_game
 
                 if not player["enemy"]["board"].ships:
+                    winner = player
                     break
-
-                time.sleep(0.5)
 
                 turn += 1
 
+        # "open" opponent boards for final print
+        for player in self.opponents:
+            player["board"].visible = True
         self._print_2_board(self.opponents[0], self.opponents[0]["enemy"])
-        print(f'\nPlayer {player["brain"]} has won!')
+        print(f'\nPlayer {winner["brain"]} won!')
+
+
+
+# Game
+#     init
+#     setup
+#         create player1 and his Board (Human or Robot based on Player class)
+#         create player2 and his Board (Human or Robot based on Player class)
+#         place_ships to Boards
+#             for ship in ship_set
+#                 build a ship
+#                 put the ship on the board
+#                 if error
+#                     try another place
+#                 if too many errors
+#                     delete all ships and start over
+#     battle
+#         game loop
+#             the Player is asked for a move
+#                 Human
+#                     used input()
+#                 Robot
+#                     if there is a wounded ship
+#                         search other ship's cells
+#                     else
+#                         random shot with basic checks
+#             the enemy's Board processes this move
+#                 check repeated shot
+#                 check out of bounds
+#                 check all ships for a hit
+#                     if any
+#                         remove this cell
+#                     if no cells in ship
+#                         remove ship
+#             Player processes the Board's answer
+#                 player set marks on his own Board
+#             print some game stats
+#             check if no ship on board
+#                 break
+#             if MISS next Player
+#         print winner
 
 
 BOARD_SIZE = 6
 SHIP_SET = [3, 2, 2, 1, 1, 1, 1]
 
 
-"""
-Game
-    init
-    setup
-        create player1 and his Board (Human or Robot based on Player class)
-        create player2 and his Board (Human or Robot based on Player class)
-        place_ships to Boards
-            for ship in ship_set
-                build ship
-                put it on board
-                if error
-                    try another place
-                if to many error
-                    clear all ships and start from begining
-    battle
-        game loop
-            Player is asked for move
-                Human
-                    used input()
-                Robot
-                    if there is a wounded ship
-                        search other ship's cells
-                    else
-                        random shot with basic checks
-            enemy Board procees this move
-                check repeated shot
-                check out of bounds
-                check all ships to hit
-                    if any
-                        remove this cell
-                    if no cells in ship
-                        remove ship
-            Player proceed Board's answer
-                player set marks on his own Board
-            print some game stats
-            check if no ship on board
-                break
-            if MISS next Player
-        print winner
-"""
-
-
 def main():
 
     random.seed(datetime.now().timestamp())
 
+    cls()
     game = Game(BOARD_SIZE, SHIP_SET)
-    game.setup()
-    game.start()
+    if game.setup():
+        input("\nPress Enter key to start")
+        cls()
+        game.start()
+    else:
+        print("\nBoard generation error. Try next time. Sorry")
 
 
 if __name__ == '__main__':

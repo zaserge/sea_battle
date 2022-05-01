@@ -1,5 +1,6 @@
 # sea_battle
-```
+
+```text
 Game
     init
     setup
@@ -7,15 +8,15 @@ Game
         create player2 and his Board (Human or Robot based on Player class)
         place_ships to Boards
             for ship in ship_set
-                build ship
-                put it on board
+                build a ship
+                put the ship on the board
                 if error
                     try another place
-                if to many error
-                    clear all ships and start from begining
+                if too many errors
+                    delete all ships and start over
     battle
         game loop
-            Player is asked for move
+            the Player is asked for a move
                 Human
                     used input()
                 Robot
@@ -23,15 +24,15 @@ Game
                         search other ship's cells
                     else
                         random shot with basic checks
-            enemy Board procees this move
+            the enemy's Board processes this move
                 check repeated shot
                 check out of bounds
-                check all ships to hit
+                check all ships for a hit
                     if any
                         remove this cell
                     if no cells in ship
                         remove ship
-            Player proceed Board's answer
+            Player processes the Board's answer
                 player set marks on his own Board
             print some game stats
             check if no ship on board
