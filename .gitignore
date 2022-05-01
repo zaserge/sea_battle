@@ -1,0 +1,5 @@
+.vscode
+_docs
+*.stats
+doxygen
+.DS_Store
