@@ -247,7 +247,7 @@ class Board:
                     if not self.visible and cell == CellState.SHIP:
                         buffer += CellState.FREE*2
                     elif cell == CellState.MISS:
-                        buffer += "<>"
+                        buffer += "()"
                     else:
                         buffer += cell*2
                 buffer += f"| {self.V_LABELS[i]}"
