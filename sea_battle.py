@@ -200,10 +200,9 @@ class BoardViewStyle:
     CLASSIC_VIEW = 1
     MODERN_VIEW = 2
 
-
-BOARD_STYLE = BoardViewStyle.MODERN_VIEW
 class Board:
 
+    BOARD_STYLE = BoardViewStyle.MODERN_VIEW
     V_LABELS = list("ABCDEFGHIJ")
     H_LABELS = list("1234567890")
 
@@ -223,7 +222,7 @@ class Board:
     def __str__(self):
         """Draw board
         """
-        if BOARD_STYLE == BoardViewStyle.CLASSIC_VIEW:
+        if self.BOARD_STYLE == BoardViewStyle.CLASSIC_VIEW:
             buffer = "  | " + " | ".join(self.H_LABELS[:self.size]) + " |"
 
             for i, row in enumerate(self.field):
@@ -238,7 +237,7 @@ class Board:
                     elif cell == CellState.FREE:
                         buffer += " О |"
 
-        elif BOARD_STYLE == BoardViewStyle.MODERN_VIEW:
+        elif self.BOARD_STYLE == BoardViewStyle.MODERN_VIEW:
             buffer = "  | " + " ".join(self.H_LABELS[:self.size]) + "|"
             buffer += "\n--|" + "-"*(self.size*2) + "|--"
             for i, row in enumerate(self.field):
@@ -658,7 +657,6 @@ class Game:
         Returns:
             bool: True is ok
         """
-        global BOARD_STYLE
         print("\nWelcome to Sea Battle Game")
         print("--------------------------\n\n")
 
@@ -673,9 +671,9 @@ D | О | О | О | О | О | ■ |          C |  ██  ██    | C
         print("What kind of board style you prefer? Left one is as required by B7.5.")
         answer = input("Enter 1 - for left, 2 - for right (default is 2): ")
         if answer == "1":
-            BOARD_STYLE = 1
+            Board.BOARD_STYLE = 1
         else:
-            BOARD_STYLE = 2
+            Board.BOARD_STYLE = 2
         print("\n\nMove format is 'RowColumn' (A1, C4, B3, etc)")
         print("Empty string for exit")
         print("--------------------------\n")
