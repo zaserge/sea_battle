@@ -28,8 +28,10 @@ import os
 
 VERSION = "0.8b"
 
+
 def cls():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    pass
+    # os.system('cls' if os.name == 'nt' else 'clear')
 
 
 class BoardException(BaseException):
@@ -200,6 +202,7 @@ class BoardViewStyle:
     CLASSIC_VIEW = 1
     MODERN_VIEW = 2
 
+
 class Board:
 
     BOARD_STYLE = BoardViewStyle.MODERN_VIEW
@@ -222,7 +225,7 @@ class Board:
     def __str__(self):
         """Draw board
         """
-        if self.BOARD_STYLE == BoardViewStyle.CLASSIC_VIEW:
+        if Board.BOARD_STYLE == BoardViewStyle.CLASSIC_VIEW:
             buffer = "  | " + " | ".join(self.H_LABELS[:self.size]) + " |"
 
             for i, row in enumerate(self.field):
@@ -237,7 +240,7 @@ class Board:
                     elif cell == CellState.FREE:
                         buffer += " О |"
 
-        elif self.BOARD_STYLE == BoardViewStyle.MODERN_VIEW:
+        elif Board.BOARD_STYLE == BoardViewStyle.MODERN_VIEW:
             buffer = "  | " + " ".join(self.H_LABELS[:self.size]) + "|"
             buffer += "\n--|" + "-"*(self.size*2) + "|--"
             for i, row in enumerate(self.field):
@@ -712,7 +715,8 @@ D | О | О | О | О | О | ■ |          C |  ██  ██    | C
         except BadBoardException:
             return False
         else:
-            print(f'\n\n  {self.opponents[0]["brain"].name} VS {self.opponents[1]["brain"].name}')
+            print(
+                f'\n\n  {self.opponents[0]["brain"].name} VS {self.opponents[1]["brain"].name}')
             return True
 
     def _print_2_board(self, player1: Player, player2: Player):
@@ -722,7 +726,6 @@ D | О | О | О | О | О | ■ |          C |  ██  ██    | C
             player1 (Player): player1
             player2 (Player): player2
         """
-
 
         screen1 = []
         screen1.append("  | " + player1["brain"].name)
@@ -794,7 +797,6 @@ D | О | О | О | О | О | ■ |          C |  ██  ██    | C
         print(f'\nPlayer {winner["brain"]} won!')
 
 
-
 # Game
 #     init
 #     setup
@@ -834,9 +836,9 @@ D | О | О | О | О | О | ■ |          C |  ██  ██    | C
 #             if MISS next Player
 #         print winner
 
-
 BOARD_SIZE = 6
 SHIP_SET = [3, 2, 2, 1, 1, 1, 1]
+
 
 def main():
 
